@@ -12,13 +12,20 @@ C="docker compose --env-file .env.nightly -f docker-compose.nightly.yml"
 echo "[snapshot] stopping nightly apps for a clean restore"
 $C stop dh-app co-app
 
-echo "[snapshot] Data Hub  prod(${PROD_DH_DB_CONTAINER}) -> nightly"
-docker exec "${PROD_DH_DB_CONTAINER}" pg_dump -U hub -d data_hub --clean --if-exists \
-  | $C exec -T dh-db psql -v ON_ERROR_STOP=1 -U hub -d data_hub
+# Drop + recreate the target DB then restore a plain dump. Cleaner than
+# `pg_dump --clean` into an existing DB, which fails to drop the `hub` schema
+# while extensions (pg_trgm, vector) still depend on it.
+echo "[snapshot] Data Hub  prod(${PROD_DH_DB_CONTAINER}) -> nightly (drop+recreate)"
+$C exec -T dh-db psql -v ON_ERROR_STOP=1 -U hub -d postgres -c \
+  "drop database if exists data_hub with (force); create database data_hub owner hub;"
+docker exec "${PROD_DH_DB_CONTAINER}" pg_dump -U hub -d data_hub --no-owner --no-privileges \
+  | $C exec -T dh-db psql -q -v ON_ERROR_STOP=1 -U hub -d data_hub
 
-echo "[snapshot] CO        prod(${PROD_CO_DB_CONTAINER}) -> nightly"
-docker exec "${PROD_CO_DB_CONTAINER}" pg_dump -U co -d barry_co --clean --if-exists \
-  | $C exec -T co-db psql -v ON_ERROR_STOP=1 -U co -d barry_co
+echo "[snapshot] CO        prod(${PROD_CO_DB_CONTAINER}) -> nightly (drop+recreate)"
+$C exec -T co-db psql -v ON_ERROR_STOP=1 -U co -d postgres -c \
+  "drop database if exists barry_co with (force); create database barry_co owner co;"
+docker exec "${PROD_CO_DB_CONTAINER}" pg_dump -U co -d barry_co --no-owner --no-privileges \
+  | $C exec -T co-db psql -q -v ON_ERROR_STOP=1 -U co -d barry_co
 
 echo "[snapshot] DH files volume  ${PROD_DH_FILES_VOL} -> nightly_dh_appfiles"
 docker run --rm \
