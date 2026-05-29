@@ -16,14 +16,18 @@ $C stop dh-app co-app
 # `pg_dump --clean` into an existing DB, which fails to drop the `hub` schema
 # while extensions (pg_trgm, vector) still depend on it.
 echo "[snapshot] Data Hub  prod(${PROD_DH_DB_CONTAINER}) -> nightly (drop+recreate)"
-$C exec -T dh-db psql -v ON_ERROR_STOP=1 -U hub -d postgres -c \
-  "drop database if exists data_hub with (force); create database data_hub owner hub;"
+# Separate -c flags: DROP DATABASE cannot run inside a transaction block, and
+# two statements in one -c get wrapped in one.
+$C exec -T dh-db psql -v ON_ERROR_STOP=1 -U hub -d postgres \
+  -c "drop database if exists data_hub with (force)" \
+  -c "create database data_hub owner hub"
 docker exec "${PROD_DH_DB_CONTAINER}" pg_dump -U hub -d data_hub --no-owner --no-privileges \
   | $C exec -T dh-db psql -q -v ON_ERROR_STOP=1 -U hub -d data_hub
 
 echo "[snapshot] CO        prod(${PROD_CO_DB_CONTAINER}) -> nightly (drop+recreate)"
-$C exec -T co-db psql -v ON_ERROR_STOP=1 -U co -d postgres -c \
-  "drop database if exists barry_co with (force); create database barry_co owner co;"
+$C exec -T co-db psql -v ON_ERROR_STOP=1 -U co -d postgres \
+  -c "drop database if exists barry_co with (force)" \
+  -c "create database barry_co owner co"
 docker exec "${PROD_CO_DB_CONTAINER}" pg_dump -U co -d barry_co --no-owner --no-privileges \
   | $C exec -T co-db psql -q -v ON_ERROR_STOP=1 -U co -d barry_co
 
