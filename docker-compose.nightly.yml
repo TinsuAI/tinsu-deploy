@@ -42,6 +42,8 @@ services:
       DATA_HUB_FILES_ROOT: /var/lib/data-hub/files
       # CO logs in via DH SSO and redirects back — allow the nightly CO origin.
       DATA_HUB_SSO_ALLOWED_REDIRECT_ORIGINS: ${NIGHTLY_CO_EXTERNAL_URL}
+      # Set to 1 once served behind the HTTPS Cloudflare domain (Secure cookies).
+      DATA_HUB_FORCE_HTTPS_COOKIE: ${DH_FORCE_HTTPS_COOKIE:-0}
     ports:
       - "${DH_HOST_PORT:-8764}:8754"
     volumes:
@@ -85,6 +87,7 @@ services:
       # DATA_HUB_API_TOKEN — fix that separately). Re-minted each snapshot.
       DATA_HUB_SERVICE_TOKEN: ${NIGHTLY_DH_SERVICE_TOKEN:-}
       CO_PUBLIC_BASE_URL: ${NIGHTLY_CO_EXTERNAL_URL}
+      CO_FORCE_HTTPS_COOKIE: ${CO_FORCE_HTTPS_COOKIE:-0}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
