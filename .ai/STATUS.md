@@ -27,10 +27,11 @@ end-to-end. Nightly cron installed.
 - `DROP DATABASE` inside a txn block → split into separate `psql -c`.
 - cron logged to `/var/log` (not writable by tinsu) → `$HOME`.
 
-## Follow-ups (not done)
-- **On-merge trigger** (brief item): add a step to each app repo's deploy job to
-  rebuild that service in the nightly stack after prod deploys. Currently
-  nightly refreshes on the 02:30 cron only.
+## Follow-ups
+- **On-merge trigger** — DONE 2026-05-29: each app's self-hosted deploy job runs
+  `tinsu-deploy/scripts/rebuild-app.sh {dh,co}` after prod deploys (pulls
+  tinsu-deploy, rebuilds that nightly service from latest main; continue-on-error).
+  Verified live on both DH + CO.
 - Watch box RAM (2nd Postgres + 2 apps alongside prod + many other stacks).
 - ⚠️ Full unmasked prod client data in the demo — accepted risk (see brief).
 
