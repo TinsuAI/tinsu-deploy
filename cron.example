@@ -1,0 +1,4 @@
+# Nightly build + prod-data snapshot for the demo stack.
+# Install on the box:  crontab -e  (user tinsu)
+# Runs 02:30 box-local time; logs to /var/log/nightly-build.log.
+30 2 * * * cd /home/tinsu/tinsu-deploy && ./scripts/nightly-build.sh >> /var/log/nightly-build.log 2>&1

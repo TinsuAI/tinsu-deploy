@@ -1,0 +1,106 @@
+# Nightly / demo stack — Data Hub + CO on the demo VPS, isolated from prod.
+#
+# Project name `nightly` (set via .env.nightly COMPOSE_PROJECT_NAME) prefixes
+# every container / volume / network, so this stack cannot touch the prod
+# stacks at /home/tinsu/data-hub (:8754) and /home/tinsu/co (:8755).
+#
+# Expected box layout (build contexts are relative):
+#   /home/tinsu/tinsu-deploy   <- this repo
+#   /home/tinsu/data-hub       <- ../data-hub
+#   /home/tinsu/co             <- ../co
+#
+# See .ai/features/2026-05-29-nightly-demo-stack/brief.md for the design +
+# the accepted client-data-exposure risk.
+services:
+  dh-db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hub
+      POSTGRES_PASSWORD: ${DH_POSTGRES_PASSWORD:?set in .env.nightly}
+      POSTGRES_DB: data_hub
+    volumes:
+      - dh_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hub -d data_hub"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  dh-app:
+    build: ./src/data-hub      # nightly's own clone (scripts/nightly-build.sh), NOT prod's checkout
+    restart: unless-stopped
+    depends_on:
+      dh-db:
+        condition: service_healthy
+    environment:
+      DATA_HUB_DATABASE_URL: postgresql://hub:${DH_POSTGRES_PASSWORD}@dh-db:5432/data_hub
+      DATA_HUB_SEED_EMAIL: ${DH_SEED_EMAIL:-admin@data-hub.local}
+      DATA_HUB_SEED_PASSWORD: ${DH_SEED_PASSWORD:?set in .env.nightly}
+      DATA_HUB_AUTO_SEED_DEMO: "0"
+      DATA_HUB_KEYS_DIR: /var/lib/data-hub/keys
+      DATA_HUB_FILES_ROOT: /var/lib/data-hub/files
+      # CO logs in via DH SSO and redirects back — allow the nightly CO origin.
+      DATA_HUB_SSO_ALLOWED_REDIRECT_ORIGINS: ${NIGHTLY_CO_EXTERNAL_URL}
+    ports:
+      - "${DH_HOST_PORT:-8764}:8754"
+    volumes:
+      - dh_appfiles:/var/lib/data-hub/files
+      - dh_keys:/var/lib/data-hub/keys   # persistent issuer keys across rebuilds
+
+  co-db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: co
+      POSTGRES_PASSWORD: ${CO_POSTGRES_PASSWORD:?set in .env.nightly}
+      POSTGRES_DB: barry_co
+    volumes:
+      - co_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U co -d barry_co"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  co-app:
+    build: ./src/co            # nightly's own clone, NOT prod's checkout
+    restart: unless-stopped
+    depends_on:
+      co-db:
+        condition: service_healthy
+    environment:
+      BARRY_DATABASE_URL: postgresql://co:${CO_POSTGRES_PASSWORD}@co-db:5432/barry_co
+      BARRY_DATABASE_SCHEMA: co
+      DATA_HUB_ENABLED: "1"
+      CO_AUTH_REQUIRED: "1"
+      # Browser-facing (SSO redirect + token `iss` match) → external nightly DH URL.
+      # MUST equal nightly DH `sso_issuer_url` (set by snapshot script).
+      DATA_HUB_BASE_URL: ${NIGHTLY_DH_EXTERNAL_URL}
+      DATA_HUB_ISSUER_URL: ${NIGHTLY_DH_EXTERNAL_URL}
+      # Server-to-server (fast, internal docker network) → DH container.
+      DATA_HUB_API_BASE_URL: http://dh-app:8754
+      DATA_HUB_JWKS_URL: http://dh-app:8754/v1/auth/jwks
+      # NOTE: the code reads DATA_HUB_SERVICE_TOKEN (prod CO's .env wrongly uses
+      # DATA_HUB_API_TOKEN — fix that separately). Re-minted each snapshot.
+      DATA_HUB_SERVICE_TOKEN: ${NIGHTLY_DH_SERVICE_TOKEN:-}
+      CO_PUBLIC_BASE_URL: ${NIGHTLY_CO_EXTERNAL_URL}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    ports:
+      - "${CO_HOST_PORT:-8765}:8755"
+    volumes:
+      - co_appdata:/var/lib/barry-co
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8755/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  dh_pgdata:
+  dh_appfiles:
+  dh_keys:
+  co_pgdata:
+  co_appdata:
