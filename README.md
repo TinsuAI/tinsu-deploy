@@ -13,6 +13,10 @@ new customers.
 Prod stacks are untouched: prod DH `/home/tinsu/data-hub` (:8754), prod CO
 `/home/tinsu/co` (:8755). This repo runs a separate `nightly` compose project.
 
+📖 **Full operations guide: [`docs/RUNBOOK.md`](docs/RUNBOOK.md)** — architecture,
+the three refresh paths, critical wiring (issuer/token/tunnel), and a
+troubleshooting table. Read it before changing anything.
+
 ## Box layout
 
 ```
