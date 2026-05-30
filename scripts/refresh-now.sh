@@ -6,4 +6,5 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ./scripts/snapshot-prod-to-nightly.sh
 ./scripts/mint-nightly-token.sh
+./scripts/ensure-demo-user.sh
 echo "[refresh] done — nightly now mirrors current prod data"

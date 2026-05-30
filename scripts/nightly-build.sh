@@ -22,6 +22,9 @@ echo "[nightly] snapshot prod -> nightly"
 echo "[nightly] mint + wire CO token"
 ./scripts/mint-nightly-token.sh
 
+echo "[nightly] ensure demo user"
+./scripts/ensure-demo-user.sh
+
 echo "[nightly] status"
 $C ps
 echo "[nightly] done $(date -u +%FT%TZ)"
