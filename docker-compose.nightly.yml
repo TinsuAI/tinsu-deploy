@@ -66,7 +66,12 @@ services:
       retries: 20
 
   co-app:
-    build: ./src/co            # nightly's own clone, NOT prod's checkout
+    build:                     # nightly's own clone, NOT prod's checkout
+      context: ./src/co
+      args:                    # baked by scripts/rebuild-app.sh; default if unset
+        VERSION: ${CO_VERSION:-0.0.0}
+        GIT_SHA: ${CO_GIT_SHA:-unknown}
+        BUILD_TIME: ${CO_BUILD_TIME:-unknown}
     restart: unless-stopped
     depends_on:
       co-db:
