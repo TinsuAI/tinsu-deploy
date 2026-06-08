@@ -28,7 +28,12 @@ services:
       retries: 20
 
   dh-app:
-    build: ./src/data-hub      # nightly's own clone (scripts/nightly-build.sh), NOT prod's checkout
+    build:                     # nightly's own clone (scripts/nightly-build.sh), NOT prod's checkout
+      context: ./src/data-hub
+      args:                    # baked by scripts/rebuild-app.sh; default if unset
+        VERSION: ${DATA_HUB_VERSION:-0.0.0}
+        GIT_SHA: ${DATA_HUB_GIT_SHA:-unknown}
+        BUILD_TIME: ${DATA_HUB_BUILD_TIME:-unknown}
     restart: unless-stopped
     depends_on:
       dh-db:
