@@ -31,11 +31,14 @@ $C exec -T co-db psql -v ON_ERROR_STOP=1 -U co -d postgres \
 docker exec "${PROD_CO_DB_CONTAINER}" pg_dump -U co -d barry_co --no-owner --no-privileges \
   | $C exec -T co-db psql -q -v ON_ERROR_STOP=1 -U co -d barry_co
 
-echo "[snapshot] DH files volume  ${PROD_DH_FILES_VOL} -> nightly_dh_appfiles"
+echo "[snapshot] DH files volume  ${PROD_DH_FILES_VOL} -> nightly_dh_appfiles (excl render_cache)"
+# Skip render_cache/: a content-addressed cache of rendered declaration PDFs
+# (~24G) that regenerates on demand from the source .xls (still copied). The
+# demo does not need a warm cache; copying it doubled disk + slowed snapshots.
 docker run --rm \
   -v "${PROD_DH_FILES_VOL}":/from:ro \
   -v nightly_dh_appfiles:/to \
-  alpine sh -c 'rm -rf /to/* && cp -a /from/. /to/ 2>/dev/null || true'
+  alpine sh -c 'rm -rf /to/* && tar -C /from --exclude=./render_cache -cf - . | tar -C /to -xf - 2>/dev/null || true'
 
 # The snapshot overwrote app_settings with prod's values, incl. sso_issuer_url
 # (= prod URL). Re-point it at the nightly issuer so JWT `iss` matches CO.
